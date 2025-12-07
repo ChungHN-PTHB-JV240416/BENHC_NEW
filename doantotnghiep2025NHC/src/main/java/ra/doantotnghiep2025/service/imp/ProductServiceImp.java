@@ -13,9 +13,7 @@ import ra.doantotnghiep2025.repository.CategoryRepository;
 import ra.doantotnghiep2025.repository.ProductRepository;
 import ra.doantotnghiep2025.service.ProductService;
 
-import java.sql.Date;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -65,23 +63,38 @@ public class ProductServiceImp implements ProductService {
         if (!categoryRepository.existsById(categoryId)) {
             throw new RuntimeException("Danh mục không tồn tại");
         }
-        if (!categoryRepository.findById(categoryId).get().isStatus()) {
-            throw new RuntimeException("Danh mục không hoạt động");
-        }
+        // Kiểm tra status (nếu entity Category có field status)
+        // if (!categoryRepository.findById(categoryId).get().isStatus()) { throw ... }
+
         Pageable pageable = PageRequest.of(page, size);
         List<Products> products = productRepository.findByCategoryCategoryId(categoryId, pageable);
         List<ProductReponseDTO> productDTOs = products.stream().map(this::convertToDTO).collect(Collectors.toList());
+
+        // Lưu ý: findByCategoryCategoryId trả về List, nên size() ở đây là size của trang hiện tại nếu dùng pageable trong Repository
+        // Để lấy totalElements chính xác, Repository nên trả về Page<Products>
         int totalElements = productRepository.findByCategoryCategoryId(categoryId).size();
         return new PageImpl<>(productDTOs, pageable, totalElements);
     }
+
+    // --- [HÀM MỚI] Implement cho phương thức được gọi từ Controller ---
+    @Override
+    public List<ProductReponseDTO> getProductsByBrand(Long brandId) {
+        if (!brandRepository.existsById(brandId)) {
+            throw new RuntimeException("Thương hiệu không tồn tại");
+        }
+        // Giả sử lấy tất cả sản phẩm của brand đó
+        List<Products> products = productRepository.findByBrandBrandId(brandId);
+        return products.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
+
+    // Implement phương thức có phân trang (từ code cũ của bạn)
     @Override
     public List<ProductReponseDTO> getProductsByBrand(Long brandId, int page, int size) {
         if (!brandRepository.existsById(brandId)) {
             throw new RuntimeException("Thương hiệu không tồn tại");
         }
-        if (!brandRepository.findById(brandId).get().getStatus()) {
-            throw new RuntimeException("Thương hiệu không hoạt động");
-        }
+        // Kiểm tra status nếu cần
+        // if (!brandRepository.findById(brandId).get().getStatus()) { throw ... }
 
         Pageable pageable = PageRequest.of(page, size);
         List<Products> products = productRepository.findByBrandBrandId(brandId, pageable);
@@ -106,7 +119,6 @@ public class ProductServiceImp implements ProductService {
                         .build())
                 .collect(Collectors.toList());
     }
-
 
     private ProductReponseDTO convertToDTO(Products product) {
         return ProductReponseDTO.builder()

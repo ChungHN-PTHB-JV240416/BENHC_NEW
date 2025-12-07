@@ -3,6 +3,7 @@ package ra.doantotnghiep2025.security;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod; // Đừng quên import HttpMethod
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -54,28 +55,34 @@ public class SecurityConfig {
                 }))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> {
+                    // 1. CÁC API CÔNG KHAI HOÀN TOÀN (Không cần login)
                     auth.requestMatchers(
-                            "/api/v1/auth/sign-up",
-                            "/api/v1/auth/sign-in",
-                            "/api/v1/categories",
-                            "/api/v1/products/search",
-                            "/api/v1/products",
-                            "/api/v1/products/featured-products",
-                            "/api/v1/products/new-products",
-                            "/api/v1/products/best-seller-products",
-                            "/api/v1/products/categories/{categoryId}",
-                            "/api/v1/products/{productId}",
+                            "/api/v1/auth/**",
                             "/api/v1/account/forgot-password",
                             "/api/v1/account/reset-password",
                             "/api/v1/user/cart/checkout/success",
                             "/api/v1/user/cart/checkout/cancel",
-                            "/api/paypal/**" // Cho phép tất cả endpoint PayPal
+                            "/api/paypal/**",
+                            "/uploads/**",
+                            "/images/**"
                     ).permitAll();
 
+                    // 2. [QUAN TRỌNG] CÁC API CHO PHÉP KHÁCH XEM (CHỈ GET)
+                    // Đây là đoạn code sửa lỗi 401 của bạn
+                    auth.requestMatchers(HttpMethod.GET,
+                            "/api/v1/brands",
+                            "/api/v1/brands/**",
+                            "/api/v1/categories",
+                            "/api/v1/categories/**",
+                            "/api/v1/products",
+                            "/api/v1/products/**",
+                            "/api/v1/products/search",
+                            "/api/v1/comments/product/**"
+                    ).permitAll();
+
+                    // 3. CÁC API CẦN ĐĂNG NHẬP
                     auth.requestMatchers("/api/v1/auth/logout").authenticated();
-
                     auth.requestMatchers("/api/v1/user/**").hasAuthority("USER");
-
                     auth.requestMatchers("/api/v1/admin/**").hasAuthority("ADMIN");
 
                     auth.anyRequest().authenticated();
@@ -90,7 +97,6 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        log.info("Configuring AuthenticationProvider...");
         DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
         authenticationProvider.setUserDetailsService(userDetailService);
         authenticationProvider.setPasswordEncoder(passwordEncoder());
@@ -99,7 +105,6 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        log.info("Configuring PasswordEncoder...");
         return new BCryptPasswordEncoder();
     }
 }

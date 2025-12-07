@@ -8,9 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ra.doantotnghiep2025.exception.CustomerException;
-import ra.doantotnghiep2025.model.dto.BrandResponseDTO;
-import ra.doantotnghiep2025.model.dto.ProductReponseDTO;
-import ra.doantotnghiep2025.service.BrandService;
+import ra.doantotnghiep2025.model.dto.ProductReponseDTO; // Lưu ý: giữ nguyên tên class DTO của bạn (dù thiếu chữ s)
 import ra.doantotnghiep2025.service.ProductService;
 
 import java.util.List;
@@ -19,6 +17,7 @@ import java.util.List;
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
+
     @Autowired
     private ProductService productService;
 
@@ -41,19 +40,22 @@ public class ProductController {
     @GetMapping("/featured-products")
     public ResponseEntity<List<ProductReponseDTO>> getFeaturedProducts() {
         List<ProductReponseDTO> featuredProducts = productService.getFeaturedProducts();
-        return ResponseEntity.ok(featuredProducts); // lấy 10 số lượng sản phẩm có tỷ lệ bán cao nhất
+        return ResponseEntity.ok(featuredProducts);
     }
+
     @GetMapping("/new-products")
     public ResponseEntity<List<ProductReponseDTO>> getNewProducts() {
         List<ProductReponseDTO> newProducts = productService.getNewProducts();
-        return ResponseEntity.ok(newProducts); // lấy theo 10 sản phẩm có thời gian tạo gần nhất
+        return ResponseEntity.ok(newProducts);
     }
+
     @GetMapping("/best-seller-products")
     public ResponseEntity<List<ProductReponseDTO>> getBestSellerProducts(
             @RequestParam(defaultValue = "10") int limit) {
         List<ProductReponseDTO> products = productService.getBestSellerProducts(limit);
-        return ResponseEntity.ok(products); // dựa trên số lượng đã bán giảm dần
+        return ResponseEntity.ok(products);
     }
+
     @GetMapping("/categories/{categoryId}")
     public ResponseEntity<Page<ProductReponseDTO>> getProductsByCategory(
             @Valid
@@ -64,12 +66,19 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
+    // --- [QUAN TRỌNG] ĐÂY LÀ HÀM BẠN ĐANG THIẾU ---
+    // Hàm này phục vụ cho trang Chi tiết thương hiệu bên React
+    @GetMapping("/brand/{brandId}")
+    public ResponseEntity<List<ProductReponseDTO>> getProductsByBrand(@PathVariable Long brandId) {
+        // Lưu ý: Bạn cần đảm bảo ProductService có hàm getProductsByBrand
+        List<ProductReponseDTO> products = productService.getProductsByBrand(brandId);
+        return ResponseEntity.ok(products);
+    }
+    // ----------------------------------------------
 
     @GetMapping("/{productId}")
     public ResponseEntity<ProductReponseDTO> getProductById(@Valid @PathVariable Long productId) throws CustomerException {
         ProductReponseDTO product = productService.getProductById(productId);
         return ResponseEntity.ok(product);
     }
-
-
 }
