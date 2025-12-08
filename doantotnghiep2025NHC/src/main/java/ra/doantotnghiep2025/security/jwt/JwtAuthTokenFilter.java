@@ -12,19 +12,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 import ra.doantotnghiep2025.security.UserDetailService;
 import ra.doantotnghiep2025.service.TokenService;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
 @Component
 public class JwtAuthTokenFilter extends OncePerRequestFilter {
-
-    private static final Logger logger = LoggerFactory.getLogger(JwtAuthTokenFilter.class);
 
     @Autowired
     private JwtProvider jwtProvider;
@@ -35,100 +30,57 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
     @Autowired
     private TokenService tokenService;
 
-    // Danh sách các đường dẫn KHÔNG cần kiểm tra Token (Công khai)
-    private static final List<String> EXCLUDED_PATHS = Arrays.asList(
-            "/api/v1/auth/sign-up",
-            "/api/v1/auth/sign-in",
-
-            // --- DANH MỤC ---
-            "/api/v1/categories",
-            "/api/v1/categories/**",
-
-            // --- THƯƠNG HIỆU (Mới thêm) ---
-            "/api/v1/brands",
-            "/api/v1/brands/**",
-
-            // --- SẢN PHẨM ---
-            "/api/v1/products/search",
-            "/api/v1/products",
-            "/api/v1/products/featured-products",
-            "/api/v1/products/new-products",
-            "/api/v1/products/best-seller-products",
-            "/api/v1/products/categories/**",
-            "/api/v1/products/brand/**",
-            "/api/v1/products/**",
-
-            // --- BÌNH LUẬN (Mới thêm - Xem bình luận) ---
-            "/api/v1/comments/product/**",
-
-            // --- TÀI KHOẢN & THANH TOÁN ---
-            "/api/v1/account/forgot-password",
-            "/api/v1/account/reset-password",
-            "/api/v1/user/cart/checkout/success",
-            "/api/v1/user/cart/checkout/cancel",
-            "/api/v1/paypal/**",
-
-            // --- TÀI NGUYÊN TĨNH ---
-            "/uploads/**",
-            "/images/**"
-    );
-
-    private final AntPathMatcher pathMatcher = new AntPathMatcher();
-
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-        String path = request.getRequestURI();
-        // Kiểm tra xem đường dẫn hiện tại có nằm trong danh sách loại trừ không
-        boolean shouldNotFilter = EXCLUDED_PATHS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
-        return shouldNotFilter;
-    }
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
             String token = getTokenFromRequest(request);
 
-            if (token != null && jwtProvider.validateToken(token)) {
-                // 1. Kiểm tra token có trong danh sách đen (Blacklist) không
-                if (tokenService.isTokenInvalidated(token)) {
-                    sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token đã bị vô hiệu hóa (Đăng xuất)");
-                    return;
-                }
+            if (token != null) {
+                // [DEBUG] In ra để kiểm tra
+                System.out.println("------------------------------------------------");
+                System.out.println("🔍 [FILTER] Đang kiểm tra request: " + request.getRequestURI());
 
-                // 2. Lấy thông tin user từ token
-                String username = jwtProvider.getUserNameFromToken(token);
-                UserDetails userDetails = userDetailService.loadUserByUsername(username);
+                boolean isValid = jwtProvider.validateToken(token);
+                if (!isValid) {
+                    System.err.println("❌ [FILTER] Token KHÔNG hợp lệ (Hết hạn hoặc sai chữ ký)!");
+                } else {
+                    if (tokenService.isTokenInvalidated(token)) {
+                        System.err.println("❌ [FILTER] Token nằm trong Blacklist (Đã logout)");
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token Invalidated");
+                        return;
+                    }
 
-                if (userDetails != null) {
-                    // 3. Xác thực thành công -> Lưu vào SecurityContext
-                    UsernamePasswordAuthenticationToken authenticationToken =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    String username = jwtProvider.getUserNameFromToken(token);
+                    System.out.println("✅ [FILTER] Token hợp lệ. Username: " + username);
+
+                    UserDetails userDetails = userDetailService.loadUserByUsername(username);
+                    if (userDetails != null) {
+                        System.out.println("🛡️ [FILTER] Quyền (Authorities) trong DB: " + userDetails.getAuthorities());
+
+                        UsernamePasswordAuthenticationToken authenticationToken =
+                                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                        authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                        System.out.println("🚀 [FILTER] Xác thực thành công -> Chuyển tiếp request");
+                    } else {
+                        System.err.println("❌ [FILTER] Không tìm thấy UserDetails cho: " + username);
+                    }
                 }
             }
         } catch (Exception e) {
-            logger.error("Lỗi xác thực token: {}", e.getMessage());
-            // Trả về lỗi JSON thay vì lỗi mặc định của Tomcat
-            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn: " + e.getMessage());
-            return;
+            System.err.println("❌ [FILTER] LỖI NGOẠI LỆ (CRITICAL ERROR):");
+            e.printStackTrace();
         }
 
         filterChain.doFilter(request, response);
     }
 
-    public String getTokenFromRequest(HttpServletRequest request) {
+    private String getTokenFromRequest(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             return header.substring(7);
         }
         return null;
-    }
-
-    private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"message\": \"" + message + "\"}");
     }
 }

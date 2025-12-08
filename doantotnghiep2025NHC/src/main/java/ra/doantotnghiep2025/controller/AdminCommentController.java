@@ -3,7 +3,6 @@ package ra.doantotnghiep2025.controller;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import ra.doantotnghiep2025.model.dto.CommentDTO;
 import ra.doantotnghiep2025.model.dto.ReplyDTO;
@@ -13,6 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/comments")
+@CrossOrigin(origins = "*") // Đảm bảo không bị chặn CORS từ frontend
 public class AdminCommentController {
 
     @Autowired
@@ -20,12 +20,15 @@ public class AdminCommentController {
 
     @GetMapping
     public ResponseEntity<List<CommentDTO>> getAllComments() {
-        List<CommentDTO> comments = commentService.getAllComments();
-        return ResponseEntity.ok(comments);
+        return ResponseEntity.ok(commentService.getAllComments());
     }
 
     @PostMapping("/{commentId}/reply")
-    public ResponseEntity<ReplyDTO> replyToComment(@Valid @PathVariable Long commentId, @RequestBody ReplyDTO replyDTO, BindingResult bindingResult) {
+    public ResponseEntity<ReplyDTO> replyToComment(
+            @PathVariable Long commentId, // Bỏ @Valid ở đây (không cần thiết cho Long)
+            @Valid @RequestBody ReplyDTO replyDTO // @Valid giữ ở đây là đúng
+            // XÓA BindingResult để lỗi 400 tự động được ném ra
+    ) {
         ReplyDTO reply = commentService.replyToComment(commentId, replyDTO);
         return ResponseEntity.ok(reply);
     }
