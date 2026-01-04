@@ -70,7 +70,7 @@
                         ).permitAll();
 
                         // 2. [QUAN TRỌNG] CÁC API CHO PHÉP KHÁCH XEM (CHỈ GET)
-                        // Đây là đoạn code sửa lỗi 401 của bạn
+
                         auth.requestMatchers(HttpMethod.GET,
                                 "/api/v1/brands",
                                 "/api/v1/brands/**",
